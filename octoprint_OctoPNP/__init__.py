@@ -19,6 +19,7 @@
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
+from xml.etree.ElementTree import QName
 
 
 import octoprint.plugin
@@ -31,6 +32,9 @@ import time
 import datetime
 import base64
 import shutil
+import numpy as np
+import cv2
+import urllib
 
 from .SmdParts import SmdParts
 from .ImageProcessing import ImageProcessing
@@ -193,21 +197,14 @@ class OctoPNP(
         if "imagetype" in flask.request.values:
             camera = flask.request.values["imagetype"]
             if (camera == "HEAD") or (camera == "BED"):
-                if self._grabImages(camera):
-                    imagePath = self._settings.get(["camera", camera.lower(), "path"])
-                    try:
-                        f = open(imagePath, "rb")
-                        result = flask.jsonify(
-                            src="data:image/"
-                            + os.path.splitext(imagePath)[1]
-                            + ";base64,"
-                            + str(base64.b64encode(bytes(f.read())), "utf-8")
-                        )
-                    except IOError:
-                        result = flask.jsonify(
-                            error="Unable to open Image after fetching. Image path: "
-                            + imagePath
-                        )
+                (path,img) = self._grabImages(camera, "BASE64")
+                if type(img) is np.ndarray:
+                    result = flask.jsonify(
+                        src="data:image/"
+                        + os.path.splitext(path)[1]
+                        + ";base64,"
+                        + str(img, "utf-8")
+                    )
                 else:
                     result = flask.jsonify(
                         error="Unable to fetch image. Check octoprint log for details."
@@ -841,25 +838,45 @@ class OctoPNP(
             self._printer.commands(line)
         self._printer.commands("G4 S1")
 
-    def _grabImages(self, camera):
+    def _grabImages(self, camera, type="CV"):
         result = True
-        grabScript = ""
-        if camera == "HEAD":
-            grabScript = self._settings.get(["camera", "head", "grab_script_path"])
-        if camera == "BED":
-            grabScript = self._settings.get(["camera", "bed", "grab_script_path"])
-        # os.path.dirname(os.path.realpath(__file__)) + "/cameras/grab.sh"
-        try:
-            if call([grabScript]) != 0:
-                self._logger.info("ERROR: " + camera + " camera not ready!")
-                result = False
-        except:
-            self._logger.info(
-                "ERROR: Unable to execute " + camera + " camera grab script!"
-            )
-            self._logger.info("Script path: " + grabScript)
-            result = False
-        return result
+        grabScript = self._settings.get(["camera", camera.lower(), "grab_script_path"])
+        imagePath = self._settings.get(["camera", camera.lower(), "path"])
+        
+        #open the image from URL when script starts with http
+        if (grabScript.lower().startswith("http")):
+            try:
+                req = urllib.urlopen('http://answers.opencv.org/upfiles/logo_2.png')
+                arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
+                img = cv2.imdecode(arr, -1) # 'Load it as it is'
+            except:
+                self._logger.exception("ERROR: Unable to open url for " + camera + " camera")
+                self._logger.exception("Script url: " + grabScript)
+                return (grabScript, False)
+        # otherwise call the grab script and copy the file
+        else:
+            try:
+                if call([grabScript]) != 0:
+                    self._logger.exception("ERROR: " + camera + " camera not ready!")
+                    return (grabScript, False)
+            except:
+                self._logger.exception("ERROR: Unable to execute " + camera + " camera grab script!")
+                self._logger.exception("Script path: " + grabScript)
+                return (grabScript, False)
+            
+            img = cv2.imread(imagePath)
+            if type(img) is not np.ndarray:
+                self._logger.exception("ERROR: Can not open " + camera + " camera image file!")
+                self._logger.exception("Image path: " + imagePath)
+                return (grabScript, False)
+
+        if type == "BASE64":
+            _, im_arr = cv2.imencode('.jpg', img)
+            return (imagePath, base64.b64encode(im_arr.tobytes()))
+        elif type == "CV":
+            return (grabScript, img)
+        else:
+            return (grabScript, False)
 
     def _saveDebugImage(self, path):
         name, ext = os.path.splitext(os.path.basename(path))
