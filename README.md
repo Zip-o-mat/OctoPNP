@@ -135,3 +135,25 @@ The calibration "wizard" is an experimental set of tools to quickly achieve seve
 * With a calibrated bed camera any extruder that is able to move over the camera, including the vacuum nozzle, can be calibrated.
 
 ![octopnp_settings_calibration_small](https://cloud.githubusercontent.com/assets/4190756/12115026/fe216f54-b3ae-11e5-9a04-4f83776c2cf6.png)
+
+## Development / Code Analyzer
+The included static code analyzer scripts might help to find potential errors and give suggstions for possible better solutions.
+
+### Preparing for Windows
+Installing shellcheck:
+ 1. See [shellcheck](https://github.com/koalaman/shellcheck#installing)
+
+Installing pylint:
+ 1. Follow this instruction to [install python and pip](https://github.com/BurntSushi/nfldb/wiki/Python-&-pip-Windows-installation)
+ 2. You may add the python*/Scripts folder to the Path ENV
+ 3. pip install pylint
+
+Installing clang-tidy:
+ 1. See [clang-tidy](https://clang.llvm.org/extra/clang-tidy/)
+
+
+### Enable git hook
+For automatic code analysis before every commit, add this hook to your local git installation by symlinking it:
+```bash
+ln -s ../../.ci/pre-push-hook .git/hooks/pre-commit
+```
