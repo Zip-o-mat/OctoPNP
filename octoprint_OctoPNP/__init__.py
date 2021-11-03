@@ -358,7 +358,7 @@ class OctoPNP(
     # camera_helper by 3. party plugins (the camera helper is triggered from within
     # the callback method).
     def __M362_OctoPNP_camera_external(self):
-        result = self._grabImages("HEAD")
+        (path,img) = self._grabImages("HEAD", "CV")
         # resume paused printjob into normal operation
         if (self._printer.is_paused() or self._printer.is_pausing()
             ) and not self._helper_was_paused:
@@ -366,12 +366,9 @@ class OctoPNP(
         # leave external state
         self._state = self.STATE_NONE
         if self._helper_callback:
-            if result:
-                self._helper_callback(self._settings.get(["camera", "head", "path"]))
-            else:
-                self._helper_callback(False)
+            self._helper_callback(img)
         else:
-            self._logger.info("Unable to return image to calling plugin, invalid callback")
+            self._logger.error("Unable to return image to calling plugin, invalid callback")
 
 #   """
 #   This hook is designed as some kind of a "state machine". The reason is, that we have to
@@ -479,23 +476,22 @@ class OctoPNP(
             self._logger.info("Taking head picture NOW")  # Debug output
 
             # take picture
-            if self._grabImages("HEAD"):
-                headPath = self._settings.get(["camera", "head", "path"])
-
+            (path,img) = self._grabImages("HEAD", "CV")
+            if type(img) is np.ndarray:
                 # update UI
-                self._updateUI("HEADIMAGE", headPath)
+                self._updateUI("HEADIMAGE", (path,img))
 
                 # extract position information
-                part_offset = self.imgproc.locatePartInBox(headPath, True)
+                part_offset = self.imgproc.locatePartInBox(path, img, True)
                 if part_offset.x == 0 and part_offset.y == 0:
                     self._updateUI("ERROR", self.imgproc.getLastErrorMessage())
                 else:
                     # update UI
-                    self._updateUI("HEADIMAGE", self.imgproc.getLastSavedImagePath())
+                    self._updateUI("HEADIMAGE", (self.imgproc.getLastSavedImagePath(), cv2.imread(self.imgproc.getLastSavedImagePath())))
 
                     # Log image for debugging and documentation
                     if self._settings.get(["camera", "image_logging"]):
-                        self._saveDebugImage(headPath)
+                        self._saveDebugImage(path, img)
             else:
                 self._updateUI("ERROR", "Camera not ready")
 
@@ -607,9 +603,8 @@ class OctoPNP(
                 )
             self._logger.info("Moving to bed camera")
 
-    def __get_orientation_offset(self, bedPath):
-        orientation_offset = self.imgproc.getPartOrientation(
-            bedPath, float(self._settings.get(["camera", "bed", "pxPerMM", "x"])))
+    def __get_orientation_offset(self, path, img):
+        orientation_offset = self.imgproc.getPartOrientation(path, img, float(self._settings.get(["camera", "bed", "pxPerMM", "x"])))
         if not orientation_offset:
             self._updateUI("ERROR", self.imgproc.getLastErrorMessage())
             orientation_offset = 0.0
@@ -629,20 +624,21 @@ class OctoPNP(
         else:
             # take picture
             self._logger.info("Taking bed align picture NOW")
-            bedPath = self._settings.get(["camera", "bed", "path"])
-            if self._grabImages("BED"):
+
+            (path,img) = self._grabImages("BED", "CV")
+            if type(img) is np.ndarray:
                 # update UI
-                self._updateUI("BEDIMAGE", bedPath)
+                self._updateUI("BEDIMAGE", (path,img))
 
                 # get rotation offset
-                orientation_offset = self.__get_orientation_offset(bedPath)
+                orientation_offset = self.__get_orientation_offset(path, img)
 
                 # update UI
-                self._updateUI("BEDIMAGE", self.imgproc.getLastSavedImagePath())
+                self._updateUI("BEDIMAGE", (self.imgproc.getLastSavedImagePath(), cv2.imread(self.imgproc.getLastSavedImagePath())))
 
                 # Log image for debugging and documentation
                 if self._settings.get(["camera", "image_logging"]):
-                    self._saveDebugImage(bedPath)
+                    self._saveDebugImage(path, img)
             else:
                 self._updateUI("ERROR", "Camera not ready")
 
@@ -656,25 +652,25 @@ class OctoPNP(
 
         # take picture to find part offset
         self._logger.info("Taking bed offset picture NOW")
-        bedPath = self._settings.get(["camera", "bed", "path"])
         orientation_offset = 0.0
-        if self._grabImages("BED"):
 
-            orientation_offset = self.__get_orientation_offset(bedPath)
+        (path,img) = self._grabImages("BED", "CV")
+        if type(img) is np.ndarray:
 
-            displacement = self.imgproc.getPartPosition(
-                bedPath, float(self._settings.get(["camera", "bed", "pxPerMM", "x"]))
+            orientation_offset = self.__get_orientation_offset(path, img)
+
+            displacement = self.imgproc.getPartPosition(path, img, float(self._settings.get(["camera", "bed", "pxPerMM", "x"]))
             )
             if not displacement:
                 self._updateUI("ERROR", self.imgproc.getLastErrorMessage())
                 displacement = [0, 0]
 
             # update UI
-            self._updateUI("BEDIMAGE", self.imgproc.getLastSavedImagePath())
+            self._updateUI("BEDIMAGE", (self.imgproc.getLastSavedImagePath(), cv2.imread(self.imgproc.getLastSavedImagePath())))
 
             # Log image for debugging and documentation
             if self._settings.get(["camera", "image_logging"]):
-                self._saveDebugImage(bedPath)
+                self._saveDebugImage(path, img)
             else:
                 self._updateUI("ERROR", "Camera not ready")
 
@@ -689,18 +685,17 @@ class OctoPNP(
             # wait a second to execute the rotation
             time.sleep(2)
             # take another image for UI
-            if self._grabImages("BED"):
+            (path,img) = self._grabImages("BED", "CV")
+            if type(img) is np.ndarray:
 
-                displacement = self.imgproc.getPartPosition(
-                    bedPath,
-                    float(self._settings.get(["camera", "bed", "pxPerMM", "x"]))
+                displacement = self.imgproc.getPartPosition(path, img, float(self._settings.get(["camera", "bed", "pxPerMM", "x"]))
                 )
                 # update UI
-                self._updateUI("BEDIMAGE", self.imgproc.getLastSavedImagePath())
+                self._updateUI("BEDIMAGE", (self.imgproc.getLastSavedImagePath(), cv2.imread(self.imgproc.getLastSavedImagePath())))
 
                 # Log image for debugging and documentation
                 if self._settings.get(["camera", "image_logging"]):
-                    self._saveDebugImage(bedPath)
+                    self._saveDebugImage(path, img)
             else:
                 self._updateUI("ERROR", "Camera not ready")
 
@@ -821,7 +816,6 @@ class OctoPNP(
 
     def _grabImages(self, camera, type="CV"):
         result = True
-<<<<<<< HEAD
         grabScript = self._settings.get(["camera", camera.lower(), "grab_script_path"])
         imagePath = self._settings.get(["camera", camera.lower(), "path"])
         
@@ -832,24 +826,24 @@ class OctoPNP(
                 arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
                 img = cv2.imdecode(arr, -1) # 'Load it as it is'
             except:
-                self._logger.exception("ERROR: Unable to open url for " + camera + " camera")
-                self._logger.exception("Script url: " + grabScript)
+                self._logger.error("ERROR: Unable to open url for " + camera + " camera")
+                self._logger.error("Script url: " + grabScript)
                 return (grabScript, False)
         # otherwise call the grab script and copy the file
         else:
             try:
                 if call([grabScript]) != 0:
-                    self._logger.exception("ERROR: " + camera + " camera not ready!")
+                    self._logger.error("ERROR: " + camera + " camera not ready!")
                     return (grabScript, False)
             except:
-                self._logger.exception("ERROR: Unable to execute " + camera + " camera grab script!")
-                self._logger.exception("Script path: " + grabScript)
+                self._logger.error("ERROR: Unable to execute " + camera + " camera grab script!")
+                self._logger.error("Script path: " + grabScript)
                 return (grabScript, False)
             
             img = cv2.imread(imagePath)
             if type(img) is not np.ndarray:
-                self._logger.exception("ERROR: Can not open " + camera + " camera image file!")
-                self._logger.exception("Image path: " + imagePath)
+                self._logger.error("ERROR: Can not open " + camera + " camera image file!")
+                self._logger.error("Image path: " + imagePath)
                 return (grabScript, False)
 
         if type == "BASE64":
@@ -859,28 +853,13 @@ class OctoPNP(
             return (grabScript, img)
         else:
             return (grabScript, False)
-=======
-        grabScript = ""
-        if camera in ( "HEAD", "BED"):
-            grabScript = self._settings.get(["camera", camera.lower(), "grab_script_path"])
-        # os.path.dirname(os.path.realpath(__file__)) + "/cameras/grab.sh"
-        try:
-            if call([grabScript]) != 0:
-                self._logger.error(camera + " camera not ready!")
-                result = False
-        except IOError:
-            self._logger.error("Unable to execute " + camera + " camera grab script!")
-            self._logger.info("Script path: " + grabScript)
-            result = False
-        return result
->>>>>>> master
 
-    def _saveDebugImage(self, path):
+    def _saveDebugImage(self, path, img):
         name, ext = os.path.splitext(os.path.basename(path))
         timestamp = datetime.datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d-%H:%M:%S")
         filename = "/" + name + "_" + timestamp + ext
         dest_path = os.path.dirname(path) + filename
-        shutil.copy(path, dest_path)
+        cv2.imwrite(dest_path, img)
         self._logger.info("saved %s image to %s", name, dest_path)
 
     def __event_file(self):
@@ -966,13 +945,13 @@ class OctoPNP(
         elif event == "INFO":
             data = dict(type = parameter)
         elif event in ( "HEADIMAGE", "BEDIMAGE"):
-            # open image and convert to base64
-            with open(parameter, "rb") as f:
-                data = dict(
-                    src="data:image/{0};base64,{1}".format(
-                        os.path.splitext(parameter)[1],
-                        str(base64.b64encode(bytes(f.read())), "utf-8"))
-                )
+            (path,img) = parameter
+            _, im_arr = cv2.imencode('.jpg', img)
+            data = dict(
+                src="data:image/{0};base64,{1}".format(
+                    os.path.splitext(path)[1],
+                    str(base64.b64encode(im_arr.tobytes()), "utf-8"))
+            )
 
         message = dict(event=event, data=data)
         self._pluginManager.send_plugin_message("OctoPNP", message)

@@ -49,12 +49,11 @@ class ImageProcessing:
     # a part is detected, False otherwise. boolean relative_to_camera sets wether the offset should
     # be relative to the box or to the camera.
     # =============================================================================================
-    def locatePartInBox(self, img_path, relative_to_camera):
+    def locatePartInBox(self, path, img, relative_to_camera):
         result = namedtuple('displacement', 'x y')(0, 0)
 
-        self._img_path = img_path
+        self._img_path = path
         # open image file
-        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
 
         # detect box boundaries
         rotated_crop_rect = self._rotatedBoundingBox(
@@ -124,12 +123,9 @@ class ImageProcessing:
     # and determining the main orientation of this box
     # Returns the angle of main edges relativ to the
     # next main axis [-45°:45°]
-    def getPartOrientation(self, img_path, offset=0):
-        self._img_path = img_path
+    def getPartOrientation(self, path, img, offset=0):
+        self._img_path = path
         result = False
-
-        # open image file
-        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
 
         mask = self._maskBackground(img)
 
@@ -174,12 +170,9 @@ class ImageProcessing:
     # Find the position of a (already rotated) part. Returns the offset between the
     # center of the image and the parts center of mass, 0,0 if no part is detected.
     # ==============================================================================
-    def getPartPosition(self, img_path, pxPerMM):
-        self._img_path = img_path
+    def getPartPosition(self, path, img, pxPerMM):
+        self._img_path = path
         result = False
-
-        # open image file
-        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
 
         mask = self._maskBackground(img)
 
