@@ -30,7 +30,6 @@ import os
 import time
 import datetime
 import base64
-import shutil
 import numpy as np
 import cv2
 import urllib
