@@ -358,6 +358,11 @@ class OctoPNP(
     # the callback method).
     def __M362_OctoPNP_camera_external(self):
         (path,img) = self._grabImages("HEAD", "CV")
+
+        #disable LED again
+        if len(self._settings.get(["camera", "head", "disable_LED_gcode"])) > 0:
+                self._printer.commands(self._settings.get(["camera", "head", "disable_LED_gcode"]))
+
         # resume paused printjob into normal operation
         if (self._printer.is_paused() or self._printer.is_pausing()
             ) and not self._helper_was_paused:
@@ -988,27 +993,46 @@ class OctoPNP(
             # store callback
             self._helper_callback = callback
 
+            cmd = []
+
+            #First clear the queue
+            cmd.append("M400")
+            cmd.append("G4 P1")
+            cmd.append("M400")
+
+            #Enable LED if needed
+            if len(self._settings.get(["camera", "head", "enable_LED_gcode"])) > 0:
+                cmd.append(self._settings.get(["camera", "head", "enable_LED_gcode"]))
+
+            #Switch to configured camera tool TODO:!
+            cmd.append("T-1")
+
+            #Calculate target position
             target_position = namedtuple('pos', 'x y z')(
                 x - float(self._settings.get(["camera", "head", "x"])),
                 y - float(self._settings.get(["camera", "head", "y"])),
                 float(self._settings.get(["camera", "head", "z"])))
-            cmd = "G1 X{0} Y{1} F{2}".format(target_position.x, target_position.y, self.FEEDRATE)
 
-            # switch to primary extruder, since the head camera is relative to this extruder and
-            # the offset to PNP nozzle might not be known (firmware offset)
-            self._printer.commands("T0")
-
+            #Adjust focus if needed
             if adjust_focus:
-                self._printer.commands("G91")  # relative positioning
+                cmd.append("G91")  # relative positioning
                 # lift printhead
-                self._printer.commands("G1 Z{0} F{1}".format(target_position.z, self.FEEDRATE))
-                self._printer.commands("G90")  # absolute positioning
-            self._printer.commands(cmd)
+                cmd.append("G1 Z{0} F{1}".format(target_position.z, self.FEEDRATE))
+                cmd.append("G90")  # absolute positioning
 
-            self.__helper_gcode_sending()
-            for _ in range(10):
-                self._printer.commands("G4 P1")
-            self._printer.commands("M362 OctoPNP_camera_external")
+            #Move to position
+            cmd.append("G1 X{0} Y{1} F{2}".format(target_position.x, target_position.y, self.FEEDRATE))
+
+            #Clear the queue again
+            cmd.append("M400")
+            cmd.append("G4 P1")
+            cmd.append("M400")
+
+            #trigger camera image grabbing
+            cmd.append("M362 OctoPNP_camera_external")
+
+            #send the gcode list to the printer
+            self._printer.commands(cmd)
             return True
 
         self._logger.info(
