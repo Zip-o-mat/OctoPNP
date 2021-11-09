@@ -1004,8 +1004,8 @@ class OctoPNP(
             if len(self._settings.get(["camera", "head", "enable_LED_gcode"])) > 0:
                 cmd.append(self._settings.get(["camera", "head", "enable_LED_gcode"]))
 
-            #Switch to configured camera tool TODO:!
-            cmd.append("T-1")
+            #Switch to configured camera tool
+            cmd.append("T" + str(self._settings.get(["camera", "head", "tool_nr"])))
 
             #Calculate target position
             target_position = namedtuple('pos', 'x y z')(
