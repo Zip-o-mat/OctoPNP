@@ -32,7 +32,7 @@ import datetime
 import base64
 import numpy as np
 import cv2
-import urllib
+import urllib.request
 import flask
 import octoprint.plugin
 
@@ -826,27 +826,27 @@ class OctoPNP(
         #open the image from URL when script starts with http
         if (grabScript.lower().startswith("http")):
             try:
-                req = urllib.urlopen('http://answers.opencv.org/upfiles/logo_2.png')
+                req = urllib.request.urlopen(grabScript)
                 arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
                 img = cv2.imdecode(arr, -1) # 'Load it as it is'
             except:
-                self._logger.error("ERROR: Unable to open url for " + camera + " camera")
+                self._logger.error("Unable to open url for " + camera + " camera")
                 self._logger.error("Script url: " + grabScript)
                 return (grabScript, False)
         # otherwise call the grab script and copy the file
         else:
             try:
                 if call([grabScript]) != 0:
-                    self._logger.error("ERROR: " + camera + " camera not ready!")
+                    self._logger.error(camera + " camera not ready!")
                     return (grabScript, False)
             except:
-                self._logger.error("ERROR: Unable to execute " + camera + " camera grab script!")
+                self._logger.error("Unable to execute " + camera + " camera grab script!")
                 self._logger.error("Script path: " + grabScript)
                 return (grabScript, False)
             
             img = cv2.imread(imagePath)
             if type(img) is not np.ndarray:
-                self._logger.error("ERROR: Can not open " + camera + " camera image file!")
+                self._logger.error("Can not open " + camera + " camera image file!")
                 self._logger.error("Image path: " + imagePath)
                 return (grabScript, False)
 
