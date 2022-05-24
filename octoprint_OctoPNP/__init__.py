@@ -87,7 +87,7 @@ class OctoPNP(
     STATE_PLACE = 3
     STATE_EXTERNAL = 9  # used if helper functions are called by external plugins
 
-    FEEDRATE = 4000.000
+    FEEDRATE = 18000.000
 
     partshandler = PartsHandler()
     partPositions = {}
