@@ -101,6 +101,9 @@ class OctoPNP(
         # store callback to send result of an image capture request back to caller
         self._helper_callback = None
 
+        # store post picture GCode
+        self._postPicGcode = ""
+
     def on_after_startup(self):
         self.imgproc = ImageProcessing(
             float(self._settings.get(["tray", "box", "boxsize"])),
@@ -362,6 +365,10 @@ class OctoPNP(
         #disable LED again
         if len(self._settings.get(["camera", "head", "disable_LED_gcode"])) > 0:
                 self._printer.commands(self._settings.get(["camera", "head", "disable_LED_gcode"]))
+
+        #Insert preGcode
+        if len(self._postPicGcode) > 0:
+            self._printer.commands(self._postPicGcode)
 
         # resume paused printjob into normal operation
         if (self._printer.is_paused() or self._printer.is_pausing()
@@ -977,8 +984,10 @@ class OctoPNP(
     #
     # adjust_focus: add camera focus distance to current z position.
     # Can be disabled to take multiple shots without moving the z-axis
-    def helper_get_head_camera_image_xy(self, x, y, callback, adjust_focus=True):
+    def helper_get_head_camera_image_xy(self, x, y, preGcode, postGcode, callback, adjust_focus=True):
         self._logger.info("Trying to take image at pos [{0}:{1}] for external plugin".format(x, y))
+
+        self._postPicGcode = postGcode
 
         if self._state == self.STATE_NONE:
             self._state = self.STATE_EXTERNAL
@@ -999,6 +1008,10 @@ class OctoPNP(
             cmd.append("M400")
             cmd.append("G4 P1")
             cmd.append("M400")
+
+            #Insert preGcode
+            if len(preGcode) > 0:
+                cmd.append(preGcode)
 
             #Enable LED if needed
             if len(self._settings.get(["camera", "head", "enable_LED_gcode"])) > 0:
