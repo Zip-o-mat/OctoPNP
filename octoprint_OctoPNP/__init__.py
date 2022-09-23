@@ -367,7 +367,7 @@ class OctoPNP(
                 self._printer.commands(self._settings.get(["camera", "head", "disable_LED_gcode"]))
 
         #Insert preGcode
-        if len(self._postPicGcode) > 0:
+        if self._postPicGcode and len(self._postPicGcode) > 0:
             self._printer.commands(self._postPicGcode)
 
         # resume paused printjob into normal operation
@@ -1010,7 +1010,7 @@ class OctoPNP(
             cmd.append("M400")
 
             #Insert preGcode
-            if len(preGcode) > 0:
+            if preGcode and len(preGcode) > 0:
                 cmd.append(preGcode)
 
             #Enable LED if needed
