@@ -834,8 +834,12 @@ class OctoPNP(
         if (grabScript.lower().startswith("http")):
             try:
                 req = urllib.request.urlopen(grabScript)
-                arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
-                img = cv2.imdecode(arr, -1) # 'Load it as it is'
+                # if the grab script path ends with .png process it as an 16bit image
+                if grabScript.lower().endswith("16.png"):
+                    img = cv2.imdecode(np.frombuffer(req.read(), np.uint16), -1)
+                else:
+                    arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
+                    img = cv2.imdecode(arr, -1) # 'Load it as it is'
             except:
                 self._logger.error("Unable to open url for " + camera + " camera")
                 self._logger.error("Script url: " + grabScript)
