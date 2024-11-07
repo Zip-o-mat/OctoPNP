@@ -362,7 +362,7 @@ class OctoPNP(
     # camera_helper by 3. party plugins (the camera helper is triggered from within
     # the callback method).
     def __M362_OctoPNP_camera_external(self):
-        (path,img) = self._grabImages("HEAD", "CV")
+        (path,img) = self._grabImages("HEAD", "PIL")
 
         #disable LED again
         if len(self._settings.get(["camera", "head", "disable_LED_gcode"])) > 0:
@@ -836,10 +836,6 @@ class OctoPNP(
         if (grabScript.lower().startswith("http")):
             try:
                 pil_img = Image.open(BytesIO(requests.get(grabScript).content))
-                if (pil_img.mode == "RGB"):
-                    img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-                else:
-                    img = np.array(pil_img)
             except Exception as e:
                 self._logger.error("Unable to open url for " + camera + " camera")
                 self._logger.error("Script url: " + grabScript)
@@ -857,8 +853,8 @@ class OctoPNP(
                 self._logger.error("Error: ", e)
                 return (grabScript, False)
             
-            img = cv2.imread(imagePath)
-            if type(img) is not np.ndarray:
+            pil_img = Image.open(imagePath)
+            if not pil_img:
                 self._logger.error("Can not open " + camera + " camera image file!")
                 self._logger.error("Image path: " + imagePath)
                 return (grabScript, False)
@@ -866,7 +862,13 @@ class OctoPNP(
         if type == "BASE64":
             _, im_arr = cv2.imencode('.jpg', img)
             return (imagePath, base64.b64encode(im_arr.tobytes()))
+        elif type == "PIL":
+            return (grabScript, pil_img)
         elif type == "CV":
+            if (pil_img.mode == "RGB"):
+                img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+            else:
+                img = np.array(pil_img)
             return (grabScript, img)
         else:
             return (grabScript, False)
